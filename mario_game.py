@@ -431,6 +431,42 @@ class Coin(pygame.sprite.Sprite):
             pygame.draw.ellipse(self.image, COIN_COLOR, (7, 2, 6, 21))
             pygame.draw.ellipse(self.image, (255, 255, 0), (8, 5, 4, 15))
 
+class Key(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.width = 26
+        self.height = 48
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.base_y = y
+        self.float_wave = random.uniform(0, math.pi * 2)
+        self.glow_timer = random.randint(0, 50)
+        self.draw_key()
+
+    def draw_key(self, glow=False):
+        self.image.fill((0, 0, 0, 0))
+        if glow:
+            glow_surface = pygame.Surface((self.width + 12, self.height + 12), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_surface, (255, 240, 150, 120), (0, 6, self.width + 12, self.height))
+            self.image.blit(glow_surface, (-6, -6))
+        pygame.draw.circle(self.image, (255, 220, 120), (self.width // 2, 14), 12)
+        pygame.draw.circle(self.image, (160, 120, 40), (self.width // 2, 14), 12, 3)
+        pygame.draw.circle(self.image, (255, 245, 200), (self.width // 2, 14), 5)
+        pygame.draw.rect(self.image, (245, 190, 60), (11, 24, 6, 14))
+        pygame.draw.rect(self.image, (245, 190, 60), (8, 34, 12, 6), border_radius=2)
+        pygame.draw.rect(self.image, (245, 190, 60), (8, 40, 12, 6), border_radius=2)
+        pygame.draw.rect(self.image, (210, 150, 40), (8, 34, 12, 2), border_radius=2)
+        pygame.draw.rect(self.image, (210, 150, 40), (8, 40, 12, 2), border_radius=2)
+
+    def update(self):
+        self.float_wave += 0.05
+        self.glow_timer = (self.glow_timer + 1) % 60
+        glow = self.glow_timer < 25
+        self.draw_key(glow)
+        self.rect.y = self.base_y + math.sin(self.float_wave) * 6
+
 class PowerUp(pygame.sprite.Sprite):
     def __init__(self, x, y, powerup_type='life'):
         super().__init__()
@@ -499,6 +535,10 @@ class Game:
         self.game_state = 'start'
         self.current_level = 1
         self.score = 0
+        self.key_obtained = False
+        self.keys_collected = 0
+        self.keys_total = 0
+        self.key_warning_timer = 0
         
         # 使用支持中文的字体
         try:
@@ -531,20 +571,33 @@ class Game:
         self.enemies = pygame.sprite.Group()
         self.coins = pygame.sprite.Group()
         self.powerups = pygame.sprite.Group()
+        self.keys = pygame.sprite.Group()
         self.flags = pygame.sprite.Group()
         self.particles.empty()
-        
+
+        self.key_obtained = False
+        self.keys_collected = 0
+        self.key_warning_timer = 0
+
         self.player = Player(50, SCREEN_HEIGHT - 150)
         self.all_sprites.add(self.player)
-        
+
         if level == 1:
             self.create_level_1()
         elif level == 2:
             self.create_level_2()
         elif level == 3:
             self.create_level_3()
-        else:
+        elif level == 4:
             self.create_level_4()
+        elif level == 5:
+            self.create_level_5()
+        else:
+            self.create_level_6()
+
+        self.keys_total = len(self.keys.sprites())
+        if self.keys_total == 0:
+            self.key_obtained = True
     
     def create_level_1(self):
         ground = Platform(0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50, GROUND_COLOR, 'ground')
@@ -574,6 +627,10 @@ class Game:
             coin = Coin(x, y)
             self.coins.add(coin)
             self.all_sprites.add(coin)
+        
+        key = Key(520, 260)
+        self.keys.add(key)
+        self.all_sprites.add(key)
         
         enemies_data = [
             (300, SCREEN_HEIGHT - 100, 'goomba'),
@@ -630,6 +687,10 @@ class Game:
             self.coins.add(coin)
             self.all_sprites.add(coin)
         
+        key = Key(470, 140)
+        self.keys.add(key)
+        self.all_sprites.add(key)
+        
         enemies_data = [
             (250, SCREEN_HEIGHT - 100, 'goomba'),
             (400, SCREEN_HEIGHT - 100, 'koopa'),
@@ -682,6 +743,10 @@ class Game:
             coin = Coin(x, y)
             self.coins.add(coin)
             self.all_sprites.add(coin)
+        
+        key = Key(360, 240)
+        self.keys.add(key)
+        self.all_sprites.add(key)
         
         enemies_data = [
             (200, SCREEN_HEIGHT - 100, 'goomba'),
@@ -741,6 +806,10 @@ class Game:
             self.coins.add(coin)
             self.all_sprites.add(coin)
         
+        key = Key(420, 160)
+        self.keys.add(key)
+        self.all_sprites.add(key)
+        
         enemies_data = [
             (150, SCREEN_HEIGHT - 100, 'koopa'),
             (300, SCREEN_HEIGHT - 100, 'goomba'),
@@ -758,6 +827,141 @@ class Game:
         powerup1 = PowerUp(220, 200, 'star')
         powerup2 = PowerUp(420, 150, 'life')
         powerup3 = PowerUp(620, 200, 'star')
+        self.powerups.add(powerup1, powerup2, powerup3)
+        self.all_sprites.add(powerup1, powerup2, powerup3)
+        
+        flag = Flag(720, SCREEN_HEIGHT - 250)
+        self.flags.add(flag)
+        self.all_sprites.add(flag)
+    
+    def create_level_5(self):
+        platforms_data = [
+            (0, SCREEN_HEIGHT - 50, 150, 50, 'ground'),
+            (250, SCREEN_HEIGHT - 50, 100, 50, 'ground'),
+            (450, SCREEN_HEIGHT - 50, 100, 50, 'ground'),
+            (650, SCREEN_HEIGHT - 50, 150, 50, 'ground'),
+            (120, 460, 60, 20, 'brick'),
+            (220, 400, 60, 20, 'brick'),
+            (320, 340, 60, 20, 'brick'),
+            (420, 280, 60, 20, 'brick'),
+            (520, 340, 60, 20, 'brick'),
+            (620, 400, 60, 20, 'brick'),
+            (280, 240, 40, 40, 'mystery'),
+            (480, 240, 40, 40, 'mystery'),
+            (150, 330, 80, 20, 'brick'),
+            (400, 200, 100, 20, 'brick'),
+            (600, 320, 80, 20, 'brick'),
+        ]
+        
+        for x, y, w, h, ptype in platforms_data:
+            platform = Platform(x, y, w, h, GROUND_COLOR if ptype == 'ground' else BRICK_COLOR, ptype)
+            self.platforms.add(platform)
+            self.all_sprites.add(platform)
+        
+        coins_positions = [
+            (140, 430), (240, 370), (340, 310),
+            (440, 250), (540, 310), (640, 370),
+            (420, 170), (450, 170), (480, 170),
+            (170, 300), (620, 290),
+        ]
+        
+        for x, y in coins_positions:
+            coin = Coin(x, y)
+            self.coins.add(coin)
+            self.all_sprites.add(coin)
+        
+        key = Key(440, 140)
+        self.keys.add(key)
+        self.all_sprites.add(key)
+        
+        enemies_data = [
+            (80, SCREEN_HEIGHT - 100, 'goomba'),
+            (290, SCREEN_HEIGHT - 100, 'koopa'),
+            (490, SCREEN_HEIGHT - 100, 'goomba'),
+            (700, SCREEN_HEIGHT - 100, 'koopa'),
+            (240, 370, 'goomba'),
+            (340, 310, 'koopa'),
+        ]
+        
+        for x, y, etype in enemies_data:
+            enemy = Enemy(x, y, etype)
+            self.enemies.add(enemy)
+            self.all_sprites.add(enemy)
+        
+        powerup1 = PowerUp(300, 190, 'life')
+        powerup2 = PowerUp(500, 190, 'star')
+        self.powerups.add(powerup1, powerup2)
+        self.all_sprites.add(powerup1, powerup2)
+        
+        flag = Flag(720, SCREEN_HEIGHT - 250)
+        self.flags.add(flag)
+        self.all_sprites.add(flag)
+    
+    def create_level_6(self):
+        platforms_data = [
+            (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50, 'ground'),
+            (50, 490, 50, 20, 'brick'),
+            (120, 450, 50, 20, 'brick'),
+            (190, 410, 50, 20, 'brick'),
+            (260, 370, 50, 20, 'brick'),
+            (330, 330, 50, 20, 'brick'),
+            (400, 290, 50, 20, 'brick'),
+            (470, 250, 50, 20, 'brick'),
+            (540, 290, 50, 20, 'brick'),
+            (610, 330, 50, 20, 'brick'),
+            (680, 370, 50, 20, 'brick'),
+            (200, 300, 40, 40, 'mystery'),
+            (400, 220, 40, 40, 'mystery'),
+            (600, 260, 40, 40, 'mystery'),
+            (100, 360, 70, 20, 'brick'),
+            (350, 200, 100, 20, 'brick'),
+            (550, 180, 100, 20, 'brick'),
+        ]
+        
+        for x, y, w, h, ptype in platforms_data:
+            platform = Platform(x, y, w, h, GROUND_COLOR if ptype == 'ground' else BRICK_COLOR, ptype)
+            self.platforms.add(platform)
+            self.all_sprites.add(platform)
+        
+        coins_positions = [
+            (70, 460), (140, 420), (210, 380),
+            (280, 340), (350, 300), (420, 260),
+            (490, 220), (560, 260), (630, 300),
+            (700, 340),
+            (370, 170), (400, 170), (430, 170),
+            (570, 150), (600, 150), (630, 150),
+        ]
+        
+        for x, y in coins_positions:
+            coin = Coin(x, y)
+            self.coins.add(coin)
+            self.all_sprites.add(coin)
+        
+        key = Key(400, 160)
+        self.keys.add(key)
+        self.all_sprites.add(key)
+        
+        enemies_data = [
+            (100, SCREEN_HEIGHT - 100, 'koopa'),
+            (200, SCREEN_HEIGHT - 100, 'goomba'),
+            (300, SCREEN_HEIGHT - 100, 'koopa'),
+            (400, SCREEN_HEIGHT - 100, 'goomba'),
+            (500, SCREEN_HEIGHT - 100, 'koopa'),
+            (600, SCREEN_HEIGHT - 100, 'goomba'),
+            (700, SCREEN_HEIGHT - 100, 'koopa'),
+            (140, 420, 'goomba'),
+            (350, 300, 'koopa'),
+            (490, 220, 'goomba'),
+        ]
+        
+        for x, y, etype in enemies_data:
+            enemy = Enemy(x, y, etype)
+            self.enemies.add(enemy)
+            self.all_sprites.add(enemy)
+        
+        powerup1 = PowerUp(220, 250, 'star')
+        powerup2 = PowerUp(420, 170, 'life')
+        powerup3 = PowerUp(620, 210, 'star')
         self.powerups.add(powerup1, powerup2, powerup3)
         self.all_sprites.add(powerup1, powerup2, powerup3)
         
@@ -813,7 +1017,8 @@ class Game:
         controls = [
             '← → 方向键: 移动',
             '↑ 上方向键: 跳跃',
-            'ESC: 退出'
+            'ESC: 退出游戏',
+            '收集钥匙开启旗帜'
         ]
         
         y_offset = 420
@@ -898,20 +1103,49 @@ class Game:
         self.enemies.update(self.platforms)
         self.coins.update()
         self.powerups.update()
+        self.keys.update()
         self.particles.update()
+        
+        key_hits = pygame.sprite.spritecollide(self.player, self.keys, True)
+        for key in key_hits:
+            self.keys_collected += 1
+            if self.keys_total == 0 or self.keys_collected >= self.keys_total:
+                self.key_obtained = True
+            for _ in range(30):
+                self.particles.add(Particle(
+                    key.rect.centerx + random.randint(-10, 10),
+                    key.rect.centery + random.randint(-10, 10),
+                    random.choice([(255, 220, 120), (255, 245, 200), (245, 190, 60)])
+                ))
+        
+        if self.key_warning_timer > 0:
+            self.key_warning_timer -= 1
         
         flag_hit = pygame.sprite.spritecollide(self.player, self.flags, False)
         if flag_hit:
-            for _ in range(50):
-                self.particles.add(Particle(
-                    flag_hit[0].rect.centerx + random.randint(-20, 20),
-                    flag_hit[0].rect.centery + random.randint(-40, 40),
-                    random.choice([GREEN, (100, 255, 100), (200, 255, 200), COIN_COLOR])
-                ))
-            self.current_level += 1
-            if self.current_level > 4:
-                self.current_level = 1
-            self.load_level(self.current_level)
+            if not self.key_obtained:
+                self.key_warning_timer = 120
+                if self.player.rect.centerx < flag_hit[0].rect.centerx:
+                    self.player.rect.right = flag_hit[0].rect.left - 5
+                else:
+                    self.player.rect.left = flag_hit[0].rect.right + 5
+                for _ in range(10):
+                    self.particles.add(Particle(
+                        flag_hit[0].rect.centerx + random.randint(-15, 15),
+                        flag_hit[0].rect.centery + random.randint(-40, 40),
+                        random.choice([(255, 180, 80), (255, 100, 100), (255, 220, 120)])
+                    ))
+            else:
+                for _ in range(50):
+                    self.particles.add(Particle(
+                        flag_hit[0].rect.centerx + random.randint(-20, 20),
+                        flag_hit[0].rect.centery + random.randint(-40, 40),
+                        random.choice([GREEN, (100, 255, 100), (200, 255, 200), COIN_COLOR])
+                    ))
+                self.current_level += 1
+                if self.current_level > 6:
+                    self.current_level = 1
+                self.load_level(self.current_level)
     
     def draw(self):
         if self.game_state == 'start':
@@ -927,9 +1161,9 @@ class Game:
                 pygame.draw.ellipse(glow_surf, (255, 255, 100, 100), (0, 0, self.player.width + 20, self.player.height + 20))
                 self.screen.blit(glow_surf, (self.player.rect.x - 10, self.player.rect.y - 10))
             
-            panel_surf = pygame.Surface((220, 100), pygame.SRCALPHA)
-            pygame.draw.rect(panel_surf, (0, 0, 0, 120), (0, 0, 220, 100), border_radius=10)
-            pygame.draw.rect(panel_surf, (255, 255, 255, 100), (0, 0, 220, 100), 2, border_radius=10)
+            panel_surf = pygame.Surface((240, 130), pygame.SRCALPHA)
+            pygame.draw.rect(panel_surf, (0, 0, 0, 120), (0, 0, 240, 130), border_radius=10)
+            pygame.draw.rect(panel_surf, (255, 255, 255, 100), (0, 0, 240, 130), 2, border_radius=10)
             self.screen.blit(panel_surf, (5, 5))
             
             score_text = self.small_font.render(f'分数: {self.score}', True, (255, 255, 100))
@@ -938,14 +1172,51 @@ class Game:
             lives_text = self.small_font.render(f'生命: {self.player.lives}', True, (255, 100, 100))
             self.screen.blit(lives_text, (15, 45))
             
+            if self.keys_total > 0:
+                key_label = f'钥匙: {min(self.keys_collected, self.keys_total)}/{self.keys_total}'
+            else:
+                key_label = '钥匙: -'
+            key_color = (255, 230, 140) if self.key_obtained and self.keys_total > 0 else (200, 200, 200)
+            key_text = self.small_font.render(key_label, True, key_color)
+            self.screen.blit(key_text, (15, 75))
+            
+            key_icon = pygame.Surface((26, 26), pygame.SRCALPHA)
+            key_ready = self.key_obtained and self.keys_total > 0
+            icon_color = (255, 215, 80) if key_ready else (160, 160, 160)
+            highlight_color = (255, 255, 220) if key_ready else (210, 210, 210)
+            pygame.draw.circle(key_icon, icon_color, (10, 12), 8)
+            pygame.draw.circle(key_icon, highlight_color, (10, 12), 4)
+            pygame.draw.rect(key_icon, icon_color, (16, 10, 8, 4), border_radius=2)
+            pygame.draw.rect(key_icon, icon_color, (18, 14, 6, 3), border_radius=2)
+            self.screen.blit(key_icon, (160, 72))
+            
             level_text = self.small_font.render(f'关卡: {self.current_level}', True, (100, 255, 100))
-            self.screen.blit(level_text, (15, 75))
+            self.screen.blit(level_text, (15, 105))
+            
+            if not self.key_obtained:
+                for flag in self.flags:
+                    lock_surface = pygame.Surface((26, 34), pygame.SRCALPHA)
+                    pygame.draw.arc(lock_surface, (200, 170, 60), (4, 4, 18, 18), math.pi, math.pi * 2, 4)
+                    pygame.draw.rect(lock_surface, (200, 170, 60), (6, 16, 14, 14), border_radius=4)
+                    pygame.draw.rect(lock_surface, (120, 90, 30), (6, 16, 14, 14), 2, border_radius=4)
+                    pygame.draw.circle(lock_surface, (120, 90, 30), (13, 23), 3, 1)
+                    self.screen.blit(lock_surface, (flag.rect.x + 18, flag.rect.y + 38))
             
             if self.player.invincible:
                 invincible_text = self.font.render('无敌状态!', True, (255, 215, 0))
                 invincible_shadow = self.font.render('无敌状态!', True, (100, 100, 0))
                 self.screen.blit(invincible_shadow, (SCREEN_WIDTH // 2 - 98, 12))
                 self.screen.blit(invincible_text, (SCREEN_WIDTH // 2 - 100, 10))
+            
+            if self.key_warning_timer > 0:
+                pulse = abs(math.sin(pygame.time.get_ticks() / 200))
+                warning_alpha = int(180 + pulse * 75)
+                warning_text = self.font.render('需要先找到钥匙!', True, (255, 100, 100))
+                text_surface = pygame.Surface(warning_text.get_size(), pygame.SRCALPHA)
+                text_surface.blit(warning_text, (0, 0))
+                text_surface.set_alpha(warning_alpha)
+                warning_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80))
+                self.screen.blit(text_surface, warning_rect)
             
             if self.game_state == 'game_over':
                 overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)

@@ -541,24 +541,49 @@ class Game:
         self.key_warning_timer = 0
         
         # 使用支持中文的字体
+        font_loaded = False
+        
+        # 尝试加载微软雅黑
         try:
-            # Windows 系统字体路径
-            chinese_font = "C:/Windows/Fonts/msyh.ttc"  # 微软雅黑
+            chinese_font = "C:/Windows/Fonts/msyh.ttc"
             self.font = pygame.font.Font(chinese_font, 48)
             self.small_font = pygame.font.Font(chinese_font, 28)
             self.title_font = pygame.font.Font(chinese_font, 72)
-        except:
-            # 如果找不到微软雅黑，尝试其他中文字体
+            font_loaded = True
+            print("成功加载微软雅黑字体")
+        except Exception as e:
+            print(f"微软雅黑加载失败: {e}")
+        
+        # 尝试加载黑体
+        if not font_loaded:
             try:
-                chinese_font = "C:/Windows/Fonts/simhei.ttf"  # 黑体
+                chinese_font = "C:/Windows/Fonts/simhei.ttf"
                 self.font = pygame.font.Font(chinese_font, 48)
                 self.small_font = pygame.font.Font(chinese_font, 28)
                 self.title_font = pygame.font.Font(chinese_font, 72)
-            except:
-                # 如果都找不到，使用系统默认字体
-                self.font = pygame.font.SysFont('microsoftyahei', 48)
-                self.small_font = pygame.font.SysFont('microsoftyahei', 28)
-                self.title_font = pygame.font.SysFont('microsoftyahei', 72)
+                font_loaded = True
+                print("成功加载黑体字体")
+            except Exception as e:
+                print(f"黑体加载失败: {e}")
+        
+        # 尝试加载宋体
+        if not font_loaded:
+            try:
+                chinese_font = "C:/Windows/Fonts/simsun.ttc"
+                self.font = pygame.font.Font(chinese_font, 48)
+                self.small_font = pygame.font.Font(chinese_font, 28)
+                self.title_font = pygame.font.Font(chinese_font, 72)
+                font_loaded = True
+                print("成功加载宋体字体")
+            except Exception as e:
+                print(f"宋体加载失败: {e}")
+        
+        # 使用系统字体
+        if not font_loaded:
+            print("使用系统字体")
+            self.font = pygame.font.SysFont('simhei,microsoftyahei,simsun,microsoft yahei', 48)
+            self.small_font = pygame.font.SysFont('simhei,microsoftyahei,simsun,microsoft yahei', 28)
+            self.title_font = pygame.font.SysFont('simhei,microsoftyahei,simsun,microsoft yahei', 72)
         
         self.particles = pygame.sprite.Group()
         self.stars = []
@@ -1033,7 +1058,19 @@ class Game:
         
         pulse = abs(math.sin(pygame.time.get_ticks() / 500))
         scaled_size = int(48 + pulse * 10)
-        pulse_font = pygame.font.Font(None, scaled_size)
+        
+        # 使用中文字体创建脉冲效果
+        try:
+            # 尝试使用相同的中文字体
+            if hasattr(self, 'font') and self.font.get_height() > 0:
+                # 获取当前使用的字体文件
+                chinese_font = "C:/Windows/Fonts/msyh.ttc"
+                pulse_font = pygame.font.Font(chinese_font, scaled_size)
+            else:
+                pulse_font = pygame.font.SysFont('simhei,microsoftyahei,simsun', scaled_size)
+        except:
+            pulse_font = pygame.font.SysFont('simhei,microsoftyahei,simsun', scaled_size)
+            
         start_text_pulse = pulse_font.render('按空格键开始', True, (255, 255, 100))
         start_rect_pulse = start_text_pulse.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60))
         self.screen.blit(start_text_pulse, start_rect_pulse)
@@ -1122,30 +1159,29 @@ class Game:
             self.key_warning_timer -= 1
         
         flag_hit = pygame.sprite.spritecollide(self.player, self.flags, False)
-        if flag_hit:
-            if not self.key_obtained:
+        if flag_hit and self.key_obtained:
+            # 有钥匙,可以通过关卡
+            for _ in range(50):
+                self.particles.add(Particle(
+                    flag_hit[0].rect.centerx + random.randint(-20, 20),
+                    flag_hit[0].rect.centery + random.randint(-40, 40),
+                    random.choice([GREEN, (100, 255, 100), (200, 255, 200), COIN_COLOR])
+                ))
+            self.current_level += 1
+            if self.current_level > 6:
+                self.current_level = 1
+            self.load_level(self.current_level)
+        elif flag_hit and not self.key_obtained:
+            # 没有钥匙,显示提示但允许玩家自由移动
+            if self.key_warning_timer == 0:
                 self.key_warning_timer = 120
-                if self.player.rect.centerx < flag_hit[0].rect.centerx:
-                    self.player.rect.right = flag_hit[0].rect.left - 5
-                else:
-                    self.player.rect.left = flag_hit[0].rect.right + 5
+                # 只生成一次粒子效果
                 for _ in range(10):
                     self.particles.add(Particle(
                         flag_hit[0].rect.centerx + random.randint(-15, 15),
                         flag_hit[0].rect.centery + random.randint(-40, 40),
                         random.choice([(255, 180, 80), (255, 100, 100), (255, 220, 120)])
                     ))
-            else:
-                for _ in range(50):
-                    self.particles.add(Particle(
-                        flag_hit[0].rect.centerx + random.randint(-20, 20),
-                        flag_hit[0].rect.centery + random.randint(-40, 40),
-                        random.choice([GREEN, (100, 255, 100), (200, 255, 200), COIN_COLOR])
-                    ))
-                self.current_level += 1
-                if self.current_level > 6:
-                    self.current_level = 1
-                self.load_level(self.current_level)
     
     def draw(self):
         if self.game_state == 'start':

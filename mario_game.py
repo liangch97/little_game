@@ -53,6 +53,8 @@ class Player(pygame.sprite.Sprite):
         self.width = 45
         self.height = 50
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        self.facing_right = True
+        self.animation_frame = 0
         self.draw_kitten()
         self.rect = self.image.get_rect()
         self.rect.x = x
@@ -63,11 +65,9 @@ class Player(pygame.sprite.Sprite):
         self.jump_power = -15
         self.gravity = 0.8
         self.speed = 5
-        self.facing_right = True
         self.lives = 3
         self.invincible = False
         self.invincible_timer = 0
-        self.animation_frame = 0
         
     def draw_kitten(self):
         self.image.fill((0, 0, 0, 0))
@@ -499,9 +499,27 @@ class Game:
         self.game_state = 'start'
         self.current_level = 1
         self.score = 0
-        self.font = pygame.font.Font(None, 48)
-        self.small_font = pygame.font.Font(None, 28)
-        self.title_font = pygame.font.Font(None, 72)
+        
+        # 使用支持中文的字体
+        try:
+            # Windows 系统字体路径
+            chinese_font = "C:/Windows/Fonts/msyh.ttc"  # 微软雅黑
+            self.font = pygame.font.Font(chinese_font, 48)
+            self.small_font = pygame.font.Font(chinese_font, 28)
+            self.title_font = pygame.font.Font(chinese_font, 72)
+        except:
+            # 如果找不到微软雅黑，尝试其他中文字体
+            try:
+                chinese_font = "C:/Windows/Fonts/simhei.ttf"  # 黑体
+                self.font = pygame.font.Font(chinese_font, 48)
+                self.small_font = pygame.font.Font(chinese_font, 28)
+                self.title_font = pygame.font.Font(chinese_font, 72)
+            except:
+                # 如果都找不到，使用系统默认字体
+                self.font = pygame.font.SysFont('microsoftyahei', 48)
+                self.small_font = pygame.font.SysFont('microsoftyahei', 28)
+                self.title_font = pygame.font.SysFont('microsoftyahei', 72)
+        
         self.particles = pygame.sprite.Group()
         self.stars = []
         for _ in range(50):
@@ -762,13 +780,13 @@ class Game:
             pygame.draw.circle(star_surf, (255, 255, 255, alpha), (size, size), size)
             self.screen.blit(star_surf, (star[0], star[1]))
         
-        title_text = self.title_font.render('Super Kitten', True, (255, 200, 100))
-        title_shadow = self.title_font.render('Super Kitten', True, (100, 50, 0))
+        title_text = self.title_font.render('超级小猫', True, (255, 200, 100))
+        title_shadow = self.title_font.render('超级小猫', True, (100, 50, 0))
         title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
         self.screen.blit(title_shadow, (title_rect.x + 3, title_rect.y + 3))
         self.screen.blit(title_text, title_rect)
         
-        subtitle_text = self.font.render('Adventure', True, (255, 220, 150))
+        subtitle_text = self.font.render('冒险之旅', True, (255, 220, 150))
         subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, 210))
         self.screen.blit(subtitle_text, subtitle_rect)
         
@@ -789,13 +807,13 @@ class Game:
         self.particles.update()
         self.particles.draw(self.screen)
         
-        controls_title = self.small_font.render('Controls:', True, WHITE)
+        controls_title = self.small_font.render('操作说明:', True, WHITE)
         self.screen.blit(controls_title, (SCREEN_WIDTH // 2 - 50, 380))
         
         controls = [
-            '← → Arrow Keys: Move',
-            '↑ Up Arrow: Jump',
-            'ESC: Quit'
+            '← → 方向键: 移动',
+            '↑ 上方向键: 跳跃',
+            'ESC: 退出'
         ]
         
         y_offset = 420
@@ -805,13 +823,13 @@ class Game:
             self.screen.blit(control_text, control_rect)
             y_offset += 30
         
-        start_text = self.font.render('Press SPACE to Start', True, (255, 255, 100))
+        start_text = self.font.render('按空格键开始', True, (255, 255, 100))
         start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60))
         
         pulse = abs(math.sin(pygame.time.get_ticks() / 500))
         scaled_size = int(48 + pulse * 10)
         pulse_font = pygame.font.Font(None, scaled_size)
-        start_text_pulse = pulse_font.render('Press SPACE to Start', True, (255, 255, 100))
+        start_text_pulse = pulse_font.render('按空格键开始', True, (255, 255, 100))
         start_rect_pulse = start_text_pulse.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60))
         self.screen.blit(start_text_pulse, start_rect_pulse)
         
@@ -914,18 +932,18 @@ class Game:
             pygame.draw.rect(panel_surf, (255, 255, 255, 100), (0, 0, 220, 100), 2, border_radius=10)
             self.screen.blit(panel_surf, (5, 5))
             
-            score_text = self.small_font.render(f'Score: {self.score}', True, (255, 255, 100))
+            score_text = self.small_font.render(f'分数: {self.score}', True, (255, 255, 100))
             self.screen.blit(score_text, (15, 15))
             
-            lives_text = self.small_font.render(f'Lives: {self.player.lives}', True, (255, 100, 100))
+            lives_text = self.small_font.render(f'生命: {self.player.lives}', True, (255, 100, 100))
             self.screen.blit(lives_text, (15, 45))
             
-            level_text = self.small_font.render(f'Level: {self.current_level}', True, (100, 255, 100))
+            level_text = self.small_font.render(f'关卡: {self.current_level}', True, (100, 255, 100))
             self.screen.blit(level_text, (15, 75))
             
             if self.player.invincible:
-                invincible_text = self.font.render('INVINCIBLE!', True, (255, 215, 0))
-                invincible_shadow = self.font.render('INVINCIBLE!', True, (100, 100, 0))
+                invincible_text = self.font.render('无敌状态!', True, (255, 215, 0))
+                invincible_shadow = self.font.render('无敌状态!', True, (100, 100, 0))
                 self.screen.blit(invincible_shadow, (SCREEN_WIDTH // 2 - 98, 12))
                 self.screen.blit(invincible_text, (SCREEN_WIDTH // 2 - 100, 10))
             
@@ -934,17 +952,17 @@ class Game:
                 pygame.draw.rect(overlay, (0, 0, 0, 150), (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT))
                 self.screen.blit(overlay, (0, 0))
                 
-                game_over_text = self.title_font.render('GAME OVER', True, (255, 100, 100))
-                game_over_shadow = self.title_font.render('GAME OVER', True, (100, 0, 0))
+                game_over_text = self.title_font.render('游戏结束', True, (255, 100, 100))
+                game_over_shadow = self.title_font.render('游戏结束', True, (100, 0, 0))
                 game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
                 self.screen.blit(game_over_shadow, (game_over_rect.x + 3, game_over_rect.y + 3))
                 self.screen.blit(game_over_text, game_over_rect)
                 
-                final_score_text = self.font.render(f'Final Score: {self.score}', True, WHITE)
+                final_score_text = self.font.render(f'最终分数: {self.score}', True, WHITE)
                 final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
                 self.screen.blit(final_score_text, final_score_rect)
                 
-                restart_text = self.small_font.render('Press R to Restart', True, (200, 255, 200))
+                restart_text = self.small_font.render('按 R 键重新开始', True, (200, 255, 200))
                 restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60))
                 self.screen.blit(restart_text, restart_rect)
         
